@@ -72,6 +72,46 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
     }
   }, [searchQuery])
 
+  // Fetch favorites from database
+  async function fetchFavorites() {
+    setLoading(true)
+    setError(null)
+    
+    try {
+      const favorites = getFavorites()
+      
+      if (favorites.length === 0) {
+        setTokens([])
+        setLoading(false)
+        return
+      }
+
+      // Fetch favorite tokens from database by addresses
+      const response = await fetch('/api/tokens/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addresses: favorites })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch favorites')
+      }
+
+      const data = await response.json()
+      
+      if (data.success && data.tokens) {
+        setTokens(data.tokens)
+      } else {
+        throw new Error('Invalid response format')
+      }
+    } catch (err) {
+      console.error('Error fetching favorites:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load favorites')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Fetch initial tokens when filters change or when not showing favorites only
   useEffect(() => {
     if (!showFavoritesOnly) {
@@ -79,10 +119,10 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
       setHasMore(true)
       fetchTokens(0, true)
     } else {
-      // When showing favorites only, just set loading to false
-      setLoading(false)
+      // Fetch favorites from database
+      fetchFavorites()
     }
-  }, [showFavoritesOnly, filters.dateFrom, filters.dateTo, filters.maxMcap, filters.hasTwitter, filters.hasWebsite, filters.hasTelegram])
+  }, [showFavoritesOnly, filters.dateFrom, filters.dateTo, filters.maxMcap, filters.hasTwitter, filters.hasWebsite, filters.hasTelegram, favoritesVersion])
 
   async function fetchTokens(currentOffset: number, isInitial: boolean = false) {
     try {
@@ -160,20 +200,14 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
     if (node) observer.current.observe(node)
   }, [loading, loadingMore, hasMore, loadMore, searchQuery, showFavoritesOnly])
 
-  // Filter tokens based on search query and favorites
-  // Note: Date, market cap, and social link filters are now handled server-side
+  // Filter tokens based on search query
+  // Note: Favorites are now fetched directly from database
+  // Date, market cap, and social link filters are handled server-side
   const filteredTokens = useMemo(() => {
     // If searching, use search results instead of loaded tokens
-    let result = searchQuery.trim().length >= 2 ? searchResults : tokens
-
-    // Favorites filter (client-side only since it's stored in localStorage)
-    if (showFavoritesOnly) {
-      const favorites = getFavorites()
-      result = result.filter(token => favorites.includes(token.address))
-    }
-
-    return result
-  }, [tokens, searchResults, searchQuery, showFavoritesOnly, favoritesVersion])
+    // Otherwise use the tokens (which are either all tokens or favorites depending on tab)
+    return searchQuery.trim().length >= 2 ? searchResults : tokens
+  }, [tokens, searchResults, searchQuery])
 
   return (
     <div className="h-full flex flex-col">
@@ -215,9 +249,18 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <p className="text-gray-400 mb-2">
-                {searchQuery ? 'No tokens found matching your search' : 'No tokens available'}
+                {searchQuery 
+                  ? 'No tokens found matching your search' 
+                  : showFavoritesOnly 
+                    ? 'No favorite tokens yet' 
+                    : 'No tokens available'}
               </p>
-              {!searchQuery && (
+              {!searchQuery && showFavoritesOnly && (
+                <p className="text-sm text-gray-500">
+                  Click the star icon on any token card to add it to your favorites
+                </p>
+              )}
+              {!searchQuery && !showFavoritesOnly && (
                 <p className="text-sm text-gray-500">
                   Run the sync process to import tokens from Dune Analytics
                 </p>
