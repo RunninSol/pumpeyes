@@ -20,18 +20,25 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
   const [favoritesVersion, setFavoritesVersion] = useState(0)
   const [highlightedAddress, setHighlightedAddress] = useState<string | null>(null)
 
-  // Update favorites count whenever favorites change
+  // Update favorites count whenever favorites change (doesn't affect token list)
   useEffect(() => {
     const favorites = getFavorites()
     onFavoritesCountChange?.(favorites.length)
   }, [favoritesVersion, onFavoritesCountChange])
 
   const handleFavoriteChange = () => {
-    // Increment version to trigger re-render and count update
+    // Increment version to trigger count update only
     setFavoritesVersion(v => v + 1)
+    // If on favorites tab, refresh favorites list
+    if (showFavoritesOnly) {
+      fetchFavorites()
+    }
   }
+  
   const [searchQuery, setSearchQuery] = useState('')
-  const [tokens, setTokens] = useState<Token[]>([])
+  // Separate state for all tokens and favorites to preserve each when switching
+  const [allTokens, setAllTokens] = useState<Token[]>([])
+  const [favoriteTokens, setFavoriteTokens] = useState<Token[]>([])
   const [searchResults, setSearchResults] = useState<Token[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -39,9 +46,12 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
   const [error, setError] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(true)
   const [offset, setOffset] = useState(0)
+  const [allTokensInitialized, setAllTokensInitialized] = useState(false)
   const limit = 1000
   const observer = useRef<IntersectionObserver | null>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
+  const allTokensScrollPosition = useRef<number>(0)
 
   // Server-side search with debounce
   useEffect(() => {
@@ -85,7 +95,7 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
       const favorites = getFavorites()
       
       if (favorites.length === 0) {
-        setTokens([])
+        setFavoriteTokens([])
         setLoading(false)
         return
       }
@@ -104,7 +114,7 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
       const data = await response.json()
       
       if (data.success && data.tokens) {
-        setTokens(data.tokens)
+        setFavoriteTokens(data.tokens)
       } else {
         throw new Error('Invalid response format')
       }
@@ -116,17 +126,51 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
     }
   }
 
-  // Fetch initial tokens when filters change or when not showing favorites only
+  // Save scroll position when switching away from all tokens
+  useEffect(() => {
+    if (showFavoritesOnly && scrollContainerRef.current) {
+      // Save current scroll position when switching TO favorites
+      allTokensScrollPosition.current = scrollContainerRef.current.scrollTop
+    }
+  }, [showFavoritesOnly])
+
+  // Restore scroll position when switching back to all tokens
+  useEffect(() => {
+    if (!showFavoritesOnly && scrollContainerRef.current && allTokensInitialized) {
+      // Restore scroll position when switching back FROM favorites
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = allTokensScrollPosition.current
+        }
+      }, 0)
+    }
+  }, [showFavoritesOnly, allTokensInitialized])
+
+  // Fetch initial all tokens only when filters change (not when favoritesVersion changes)
   useEffect(() => {
     if (!showFavoritesOnly) {
-      setOffset(0)
-      setHasMore(true)
-      fetchTokens(0, true)
-    } else {
-      // Fetch favorites from database
+      // Only fetch if not already initialized or if filters changed
+      if (!allTokensInitialized || filters.dateFrom || filters.dateTo || filters.minMcap || filters.maxMcap || filters.sortBy !== 'launch_date_desc' || filters.hasTwitter || filters.hasWebsite || filters.hasTelegram || filters.hasImage || filters.hasDescription || filters.aiCategory || filters.userTag) {
+        setOffset(0)
+        setHasMore(true)
+        fetchTokens(0, true)
+      }
+    }
+  }, [filters.dateFrom, filters.dateTo, filters.minMcap, filters.maxMcap, filters.sortBy, filters.hasTwitter, filters.hasWebsite, filters.hasTelegram, filters.hasImage, filters.hasDescription, filters.aiCategory, filters.userTag])
+
+  // Fetch favorites when switching to favorites tab
+  useEffect(() => {
+    if (showFavoritesOnly) {
       fetchFavorites()
     }
-  }, [showFavoritesOnly, filters.dateFrom, filters.dateTo, filters.minMcap, filters.maxMcap, filters.sortBy, filters.hasTwitter, filters.hasWebsite, filters.hasTelegram, filters.hasImage, filters.hasDescription, filters.aiCategory, filters.userTag, favoritesVersion])
+  }, [showFavoritesOnly])
+
+  // Initial load for all tokens
+  useEffect(() => {
+    if (!allTokensInitialized && !showFavoritesOnly) {
+      fetchTokens(0, true)
+    }
+  }, [])
 
   async function fetchTokens(currentOffset: number, isInitial: boolean = false) {
     try {
@@ -164,9 +208,10 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
       
       if (data.success && data.tokens) {
         if (isInitial) {
-          setTokens(data.tokens)
+          setAllTokens(data.tokens)
+          setAllTokensInitialized(true)
         } else {
-          setTokens(prev => [...prev, ...data.tokens])
+          setAllTokens(prev => [...prev, ...data.tokens])
         }
         
         // If we got fewer tokens than the limit, we've reached the end
@@ -207,6 +252,9 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
     
     if (node) observer.current.observe(node)
   }, [loading, loadingMore, hasMore, loadMore, searchQuery, showFavoritesOnly])
+
+  // Get the base tokens depending on which tab we're on
+  const tokens = showFavoritesOnly ? favoriteTokens : allTokens
 
   // Filter tokens based on search query
   // Note: Favorites are now fetched directly from database
@@ -254,7 +302,7 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
         const data = await response.json()
         if (data.success && data.token) {
           // Add to beginning of tokens list
-          setTokens(prev => [data.token, ...prev.filter(t => t.address !== address)])
+          setAllTokens(prev => [data.token, ...prev.filter(t => t.address !== address)])
           setHighlightedAddress(address)
           // Scroll to top
           setTimeout(() => {
@@ -283,7 +331,7 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
       <RecentlyViewedBar onTokenClick={handleRecentTokenClick} />
 
       {/* Token Grid */}
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div ref={scrollContainerRef} className="flex-1 p-6 overflow-y-auto">
         {searching && (
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
