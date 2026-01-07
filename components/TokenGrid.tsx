@@ -322,7 +322,7 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
               Showing {filteredTokens.length} {filteredTokens.length === 1 ? 'token' : 'tokens'}
               {!searchQuery && hasMore && !showFavoritesOnly && ` (scroll for more)`}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 4xl:grid-cols-9 gap-3">
               {filteredTokens.map((token, index) => {
                 const isHighlighted = highlightedAddress === token.address
                 // Attach ref to last token for infinite scroll (only on All Tokens tab)

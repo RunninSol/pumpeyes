@@ -19,6 +19,10 @@ const config: Config = {
         accent: '#ff4757', // Red accent
         'accent-hover': '#ff6b7a', // Lighter red for hover
       },
+      screens: {
+        '3xl': '1920px', // For larger monitors
+        '4xl': '2560px', // For 2560px+ monitors
+      },
     },
   },
   plugins: [],
