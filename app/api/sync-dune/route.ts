@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { batchUpsertTokens, getExistingTokenAddresses } from '@/lib/database'
 import { TokenRow } from '@/lib/supabase'
 
+// Force dynamic rendering - don't pre-render during build
+// This prevents accidental data overwrites during deployment
+export const dynamic = 'force-dynamic'
+
 interface DuneTokenRow {
   token?: string; // HTML link with address
   symbol?: string; // HTML link with symbol
