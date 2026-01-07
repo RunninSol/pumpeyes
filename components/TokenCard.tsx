@@ -4,6 +4,8 @@ import { Token } from '@/types/token'
 import { useState, useEffect } from 'react'
 import { isFavorite, toggleFavorite } from '@/lib/favorites'
 import { addRecentlyViewed } from '@/lib/recentlyViewed'
+import { categorizeToken } from '@/lib/categorizer'
+import { getTokenTags, addTagToToken, removeTagFromToken, SUGGESTED_TAGS } from '@/lib/userTags'
 
 interface TokenCardProps {
   token: Token
@@ -13,6 +15,9 @@ interface TokenCardProps {
 
 export default function TokenCard({ token, onFavoriteChange, isHighlighted }: TokenCardProps) {
   const [isFav, setIsFav] = useState(false)
+  const [autoCategory, setAutoCategory] = useState('')
+  const [userTags, setUserTags] = useState<string[]>([])
+  const [showTagMenu, setShowTagMenu] = useState(false)
   const [copied, setCopied] = useState(false)
   const [dexLoading, setDexLoading] = useState(false)
   const [pairAddress, setPairAddress] = useState<string | null>(null)
@@ -20,6 +25,29 @@ export default function TokenCard({ token, onFavoriteChange, isHighlighted }: To
   useEffect(() => {
     setIsFav(isFavorite(token.address))
   }, [token.address])
+
+  useEffect(() => {
+    setAutoCategory(categorizeToken(token.name, token.description, token.symbol))
+    setUserTags(getTokenTags(token.address))
+  }, [token.address, token.name, token.description, token.symbol])
+
+  useEffect(() => {
+    const handleTagsChange = () => {
+      setUserTags(getTokenTags(token.address))
+    }
+    window.addEventListener('userTagsChanged', handleTagsChange)
+    return () => window.removeEventListener('userTagsChanged', handleTagsChange)
+  }, [token.address])
+
+  const handleAddTag = (tag: string) => {
+    addTagToToken(token.address, tag)
+    setShowTagMenu(false)
+  }
+
+  const handleRemoveTag = (tag: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    removeTagFromToken(token.address, tag)
+  }
 
   // Add to recently viewed when interacting with the token
   const trackView = () => {
@@ -195,14 +223,56 @@ export default function TokenCard({ token, onFavoriteChange, isHighlighted }: To
             </div>
           )}
           
-          {token.category && (
-            <div className="flex justify-between">
-              <span className="text-gray-500">Category:</span>
-              <span className="text-text font-medium text-right text-[11px] leading-tight max-w-[55%] truncate" title={token.category}>
-                {token.category}
+          {/* Auto Category & User Tags */}
+          <div className="flex flex-wrap gap-1 mt-1 relative">
+            {autoCategory && autoCategory !== 'Other' && (
+              <span className="px-1 py-0.5 text-[8px] rounded bg-primary/20 text-primary border border-primary/30" title="Auto-detected">
+                🤖 {autoCategory}
               </span>
-            </div>
-          )}
+            )}
+            {userTags.slice(0, 2).map(tag => (
+              <span 
+                key={tag}
+                className="inline-flex items-center gap-0.5 px-1 py-0.5 text-[8px] rounded bg-secondary/20 text-secondary border border-secondary/30"
+              >
+                {tag}
+                <button 
+                  onClick={(e) => handleRemoveTag(tag, e)}
+                  className="hover:text-red-400 ml-0.5"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            {userTags.length > 2 && (
+              <span className="text-[8px] text-gray-500">+{userTags.length - 2}</span>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowTagMenu(!showTagMenu); }}
+              className="px-1 py-0.5 text-[8px] rounded border border-dashed border-gray-600 text-gray-500 hover:border-primary hover:text-primary"
+              title="Add tag"
+            >
+              +
+            </button>
+            
+            {/* Tag dropdown menu */}
+            {showTagMenu && (
+              <div 
+                className="absolute z-50 top-full left-0 mt-1 w-32 bg-card border border-gray-700 rounded shadow-xl py-1"
+                onClick={e => e.stopPropagation()}
+              >
+                {SUGGESTED_TAGS.filter(t => !userTags.includes(t)).slice(0, 8).map(tag => (
+                  <button
+                    key={tag}
+                    onClick={() => handleAddTag(tag)}
+                    className="block w-full text-left px-2 py-0.5 text-[10px] text-gray-400 hover:text-primary hover:bg-gray-800"
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Social Links & Buttons - Compact */}

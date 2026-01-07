@@ -7,6 +7,8 @@ import TokenCard from './TokenCard'
 import RecentlyViewedBar from './RecentlyViewedBar'
 import { FilterOptions } from './SearchSidebar'
 import { getFavorites } from '@/lib/favorites'
+import { categorizeToken } from '@/lib/categorizer'
+import { getTokensWithTag } from '@/lib/userTags'
 
 interface TokenGridProps {
   filters: FilterOptions
@@ -124,7 +126,7 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
       // Fetch favorites from database
       fetchFavorites()
     }
-  }, [showFavoritesOnly, filters.dateFrom, filters.dateTo, filters.minMcap, filters.maxMcap, filters.category, filters.sortBy, filters.hasTwitter, filters.hasWebsite, filters.hasTelegram, filters.hasImage, filters.hasDescription, favoritesVersion])
+  }, [showFavoritesOnly, filters.dateFrom, filters.dateTo, filters.minMcap, filters.maxMcap, filters.sortBy, filters.hasTwitter, filters.hasWebsite, filters.hasTelegram, filters.hasImage, filters.hasDescription, filters.aiCategory, filters.userTag, favoritesVersion])
 
   async function fetchTokens(currentOffset: number, isInitial: boolean = false) {
     try {
@@ -145,7 +147,6 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
       if (filters.dateTo) params.append('dateTo', filters.dateTo)
       if (filters.minMcap) params.append('minMarketCap', filters.minMcap)
       if (filters.maxMcap) params.append('maxMarketCap', filters.maxMcap)
-      if (filters.category) params.append('category', filters.category)
       if (filters.sortBy) params.append('sortBy', filters.sortBy)
       if (filters.hasTwitter) params.append('hasTwitter', 'true')
       if (filters.hasWebsite) params.append('hasWebsite', 'true')
@@ -211,10 +212,25 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
   // Note: Favorites are now fetched directly from database
   // Date, market cap, and social link filters are handled server-side
   const filteredTokens = useMemo(() => {
-    // If searching, use search results instead of loaded tokens
-    // Otherwise use the tokens (which are either all tokens or favorites depending on tab)
-    return searchQuery.trim().length >= 2 ? searchResults : tokens
-  }, [tokens, searchResults, searchQuery])
+    // Start with either search results or loaded tokens
+    let result = searchQuery.trim().length >= 2 ? searchResults : tokens
+    
+    // Filter by AI category (client-side)
+    if (filters.aiCategory) {
+      result = result.filter(token => {
+        const tokenCategory = categorizeToken(token.name, token.description, token.symbol)
+        return tokenCategory === filters.aiCategory
+      })
+    }
+    
+    // Filter by user tag (client-side)
+    if (filters.userTag) {
+      const tokensWithTag = getTokensWithTag(filters.userTag)
+      result = result.filter(token => tokensWithTag.includes(token.address))
+    }
+    
+    return result
+  }, [tokens, searchResults, searchQuery, filters.aiCategory, filters.userTag])
 
   // Handle clicking on a recently viewed token
   const handleRecentTokenClick = async (address: string) => {

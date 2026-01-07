@@ -68,7 +68,6 @@ export interface TokenFilters {
   dateTo?: string;
   minMarketCap?: number;
   maxMarketCap?: number;
-  category?: string;
   sortBy?: string;
   hasTwitter?: boolean;
   hasWebsite?: boolean;
@@ -102,11 +101,6 @@ export async function getAllTokens(limit: number = 1000, offset: number = 0, fil
   }
   if (filters?.maxMarketCap) {
     query = query.lte('ath', filters.maxMarketCap);
-  }
-
-  // Apply category filter
-  if (filters?.category) {
-    query = query.eq('category', filters.category);
   }
 
   // Apply social link filters

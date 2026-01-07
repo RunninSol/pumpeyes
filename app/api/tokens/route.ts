@@ -17,7 +17,6 @@ export async function GET(request: Request) {
       dateTo: searchParams.get('dateTo') || undefined,
       minMarketCap: searchParams.get('minMarketCap') ? parseFloat(searchParams.get('minMarketCap')!) : undefined,
       maxMarketCap: searchParams.get('maxMarketCap') ? parseFloat(searchParams.get('maxMarketCap')!) : undefined,
-      category: searchParams.get('category') || undefined,
       sortBy: searchParams.get('sortBy') || 'launch_date_desc',
       hasTwitter: searchParams.get('hasTwitter') === 'true',
       hasWebsite: searchParams.get('hasWebsite') === 'true',

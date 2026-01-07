@@ -2,13 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import DateRangePicker from './DateRangePicker'
+import { CATEGORIES } from '@/lib/categorizer'
+import { getAllUsedTags } from '@/lib/userTags'
 
 export interface FilterOptions {
   dateFrom: string
   dateTo: string
   minMcap: string
   maxMcap: string
-  category: string
+  aiCategory: string
+  userTag: string
   sortBy: string
   hasTwitter: boolean
   hasWebsite: boolean
@@ -24,18 +27,17 @@ interface SearchSidebarProps {
 }
 
 export default function SearchSidebar({ filters, onFiltersChange, favoritesCount }: SearchSidebarProps) {
-  const [categories, setCategories] = useState<string[]>([])
+  const [userTags, setUserTags] = useState<string[]>([])
 
-  // Fetch categories on mount
+  // Load user tags on mount
   useEffect(() => {
-    fetch('/api/categories')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.categories) {
-          setCategories(data.categories)
-        }
-      })
-      .catch(console.error)
+    setUserTags(getAllUsedTags())
+    
+    const handleTagsChange = () => {
+      setUserTags(getAllUsedTags())
+    }
+    window.addEventListener('userTagsChanged', handleTagsChange)
+    return () => window.removeEventListener('userTagsChanged', handleTagsChange)
   }, [])
 
   const handleFilterChange = (key: keyof FilterOptions, value: string | boolean) => {
@@ -48,7 +50,8 @@ export default function SearchSidebar({ filters, onFiltersChange, favoritesCount
       dateTo: '',
       minMcap: '',
       maxMcap: '',
-      category: '',
+      aiCategory: '',
+      userTag: '',
       sortBy: 'launch_date_desc',
       hasTwitter: false,
       hasWebsite: false,
@@ -63,7 +66,8 @@ export default function SearchSidebar({ filters, onFiltersChange, favoritesCount
     filters.dateTo || 
     filters.minMcap ||
     filters.maxMcap || 
-    filters.category ||
+    filters.aiCategory ||
+    filters.userTag ||
     filters.sortBy !== 'launch_date_desc' ||
     filters.hasTwitter || 
     filters.hasWebsite || 
@@ -106,22 +110,41 @@ export default function SearchSidebar({ filters, onFiltersChange, favoritesCount
           </select>
         </div>
 
-        {/* Category Filter */}
+        {/* AI Category Filter */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            Category
+            🤖 AI Category
           </label>
           <select
-            value={filters.category}
-            onChange={(e) => handleFilterChange('category', e.target.value)}
+            value={filters.aiCategory}
+            onChange={(e) => handleFilterChange('aiCategory', e.target.value)}
             className="w-full px-3 py-2 bg-card border border-gray-800/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-text"
           >
             <option value="">All Categories</option>
-            {categories.map((cat) => (
+            {CATEGORIES.filter(c => c !== 'Other').map((cat) => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
         </div>
+
+        {/* User Tags Filter */}
+        {userTags.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              🏷️ Your Tags
+            </label>
+            <select
+              value={filters.userTag}
+              onChange={(e) => handleFilterChange('userTag', e.target.value)}
+              className="w-full px-3 py-2 bg-card border border-gray-800/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary text-text"
+            >
+              <option value="">All Tags</option>
+              {userTags.map((tag) => (
+                <option key={tag} value={tag}>{tag}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Launch Date Range */}
         <DateRangePicker
