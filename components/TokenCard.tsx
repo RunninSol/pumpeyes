@@ -1,11 +1,11 @@
 'use client'
 
 import { Token } from '@/types/token'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { isFavorite, toggleFavorite } from '@/lib/favorites'
 import { addRecentlyViewed } from '@/lib/recentlyViewed'
-import { categorizeToken } from '@/lib/categorizer'
-import { getTokenTags, addTagToToken, removeTagFromToken, SUGGESTED_TAGS } from '@/lib/userTags'
+import { categorizeToken, CATEGORIES } from '@/lib/categorizer'
+import { getTokenTags, addTagToToken, removeTagFromToken, SUGGESTED_TAGS, getCategoryOverride, setCategoryOverride } from '@/lib/userTags'
 
 interface TokenCardProps {
   token: Token
@@ -16,18 +16,25 @@ interface TokenCardProps {
 export default function TokenCard({ token, onFavoriteChange, isHighlighted }: TokenCardProps) {
   const [isFav, setIsFav] = useState(false)
   const [autoCategory, setAutoCategory] = useState('')
+  const [displayCategory, setDisplayCategory] = useState('')
   const [userTags, setUserTags] = useState<string[]>([])
   const [showTagMenu, setShowTagMenu] = useState(false)
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false)
   const [copied, setCopied] = useState(false)
   const [dexLoading, setDexLoading] = useState(false)
   const [pairAddress, setPairAddress] = useState<string | null>(null)
+  const tagMenuRef = useRef<HTMLDivElement>(null)
+  const categoryMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setIsFav(isFavorite(token.address))
   }, [token.address])
 
   useEffect(() => {
-    setAutoCategory(categorizeToken(token.name, token.description, token.symbol))
+    const aiCategory = categorizeToken(token.name, token.description, token.symbol)
+    setAutoCategory(aiCategory)
+    const override = getCategoryOverride(token.address)
+    setDisplayCategory(override || aiCategory)
     setUserTags(getTokenTags(token.address))
   }, [token.address, token.name, token.description, token.symbol])
 
@@ -35,9 +42,31 @@ export default function TokenCard({ token, onFavoriteChange, isHighlighted }: To
     const handleTagsChange = () => {
       setUserTags(getTokenTags(token.address))
     }
+    const handleCategoryChange = () => {
+      const override = getCategoryOverride(token.address)
+      setDisplayCategory(override || autoCategory)
+    }
     window.addEventListener('userTagsChanged', handleTagsChange)
-    return () => window.removeEventListener('userTagsChanged', handleTagsChange)
-  }, [token.address])
+    window.addEventListener('categoryOverrideChanged', handleCategoryChange)
+    return () => {
+      window.removeEventListener('userTagsChanged', handleTagsChange)
+      window.removeEventListener('categoryOverrideChanged', handleCategoryChange)
+    }
+  }, [token.address, autoCategory])
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (tagMenuRef.current && !tagMenuRef.current.contains(e.target as Node)) {
+        setShowTagMenu(false)
+      }
+      if (categoryMenuRef.current && !categoryMenuRef.current.contains(e.target as Node)) {
+        setShowCategoryMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const handleAddTag = (tag: string) => {
     addTagToToken(token.address, tag)
@@ -47,6 +76,17 @@ export default function TokenCard({ token, onFavoriteChange, isHighlighted }: To
   const handleRemoveTag = (tag: string, e: React.MouseEvent) => {
     e.stopPropagation()
     removeTagFromToken(token.address, tag)
+  }
+
+  const handleCategoryChange = (category: string) => {
+    if (category === autoCategory) {
+      // Reset to auto-detected
+      setCategoryOverride(token.address, null)
+    } else {
+      setCategoryOverride(token.address, category)
+    }
+    setDisplayCategory(category)
+    setShowCategoryMenu(false)
   }
 
   // Add to recently viewed when interacting with the token
@@ -223,13 +263,52 @@ export default function TokenCard({ token, onFavoriteChange, isHighlighted }: To
             </div>
           )}
           
-          {/* Auto Category & User Tags */}
-          <div className="flex flex-wrap gap-1 mt-1.5 relative">
-            {autoCategory && autoCategory !== 'Other' && (
-              <span className="px-1.5 py-0.5 text-[9px] rounded bg-primary/20 text-primary border border-primary/30" title="Auto-detected">
-                🤖 {autoCategory}
-              </span>
-            )}
+          {/* Category & User Tags */}
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {/* Editable Category */}
+            <div className="relative" ref={categoryMenuRef}>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowCategoryMenu(!showCategoryMenu); setShowTagMenu(false); }}
+                className={`px-1.5 py-0.5 text-[9px] rounded border cursor-pointer hover:opacity-80 transition-opacity ${
+                  getCategoryOverride(token.address)
+                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                    : 'bg-primary/20 text-primary border-primary/30'
+                }`}
+                title={getCategoryOverride(token.address) ? "User-set category (click to change)" : "AI-detected category (click to change)"}
+              >
+                {getCategoryOverride(token.address) ? '✓' : '🤖'} {displayCategory}
+              </button>
+              
+              {/* Category dropdown */}
+              {showCategoryMenu && (
+                <div 
+                  className="fixed z-[9999] w-40 bg-card border border-gray-700 rounded-lg shadow-2xl py-1 max-h-64 overflow-y-auto"
+                  style={{ 
+                    top: categoryMenuRef.current ? categoryMenuRef.current.getBoundingClientRect().bottom + 4 : 0,
+                    left: categoryMenuRef.current ? categoryMenuRef.current.getBoundingClientRect().left : 0
+                  }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div className="px-2 py-1 text-[9px] text-gray-500 border-b border-gray-700">Select category:</div>
+                  {CATEGORIES.filter(c => c !== 'Other').map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => handleCategoryChange(cat)}
+                      className={`block w-full text-left px-2 py-1 text-[10px] hover:bg-gray-800 ${
+                        displayCategory === cat 
+                          ? 'text-primary bg-primary/10' 
+                          : 'text-gray-400 hover:text-primary'
+                      }`}
+                    >
+                      {cat === autoCategory && '🤖 '}{cat}
+                      {displayCategory === cat && ' ✓'}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* User Tags */}
             {userTags.slice(0, 2).map(tag => (
               <span 
                 key={tag}
@@ -247,32 +326,41 @@ export default function TokenCard({ token, onFavoriteChange, isHighlighted }: To
             {userTags.length > 2 && (
               <span className="text-[9px] text-gray-500">+{userTags.length - 2}</span>
             )}
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowTagMenu(!showTagMenu); }}
-              className="px-1.5 py-0.5 text-[9px] rounded border border-dashed border-gray-600 text-gray-500 hover:border-primary hover:text-primary"
-              title="Add tag"
-            >
-              +
-            </button>
             
-            {/* Tag dropdown menu */}
-            {showTagMenu && (
-              <div 
-                className="absolute z-50 top-full left-0 mt-1 w-36 bg-card border border-gray-700 rounded shadow-xl py-1"
-                onClick={e => e.stopPropagation()}
+            {/* Add Tag Button */}
+            <div className="relative" ref={tagMenuRef}>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowTagMenu(!showTagMenu); setShowCategoryMenu(false); }}
+                className="px-1.5 py-0.5 text-[9px] rounded border border-dashed border-gray-600 text-gray-500 hover:border-primary hover:text-primary"
+                title="Add tag"
               >
-                {SUGGESTED_TAGS.filter(t => !userTags.includes(t)).slice(0, 8).map(tag => (
-                  <button
-                    key={tag}
-                    onClick={() => handleAddTag(tag)}
-                    className="block w-full text-left px-2 py-0.5 text-[10px] text-gray-400 hover:text-primary hover:bg-gray-800"
-                  >
+                +
+              </button>
+              
+              {/* Tag dropdown menu - using fixed positioning */}
+              {showTagMenu && (
+                <div 
+                  className="fixed z-[9999] w-40 bg-card border border-gray-700 rounded-lg shadow-2xl py-1 max-h-64 overflow-y-auto"
+                  style={{ 
+                    top: tagMenuRef.current ? tagMenuRef.current.getBoundingClientRect().bottom + 4 : 0,
+                    left: tagMenuRef.current ? Math.min(tagMenuRef.current.getBoundingClientRect().left, window.innerWidth - 170) : 0
+                  }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div className="px-2 py-1 text-[9px] text-gray-500 border-b border-gray-700">Add tag:</div>
+                  {SUGGESTED_TAGS.filter(t => !userTags.includes(t)).slice(0, 12).map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => handleAddTag(tag)}
+                      className="block w-full text-left px-2 py-1 text-[10px] text-gray-400 hover:text-primary hover:bg-gray-800"
+                    >
                     {tag}
                   </button>
                 ))}
               </div>
             )}
           </div>
+        </div>
         </div>
 
         {/* Social Links & Buttons */}

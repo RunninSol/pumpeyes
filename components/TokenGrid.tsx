@@ -8,7 +8,7 @@ import RecentlyViewedBar from './RecentlyViewedBar'
 import { FilterOptions } from './SearchSidebar'
 import { getFavorites } from '@/lib/favorites'
 import { categorizeToken } from '@/lib/categorizer'
-import { getTokensWithTag } from '@/lib/userTags'
+import { getTokensWithTag, getCategoryOverride } from '@/lib/userTags'
 
 interface TokenGridProps {
   filters: FilterOptions
@@ -215,10 +215,11 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
     // Start with either search results or loaded tokens
     let result = searchQuery.trim().length >= 2 ? searchResults : tokens
     
-    // Filter by AI category (client-side)
+    // Filter by category (checks user override first, then AI-detected)
     if (filters.aiCategory) {
       result = result.filter(token => {
-        const tokenCategory = categorizeToken(token.name, token.description, token.symbol)
+        const override = getCategoryOverride(token.address)
+        const tokenCategory = override || categorizeToken(token.name, token.description, token.symbol)
         return tokenCategory === filters.aiCategory
       })
     }

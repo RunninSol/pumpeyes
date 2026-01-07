@@ -1,11 +1,16 @@
 'use client'
 
-// User-defined tags stored in localStorage
+// User-defined tags and category overrides stored in localStorage
 
 const STORAGE_KEY = 'userTokenTags'
+const CATEGORY_OVERRIDE_KEY = 'userCategoryOverrides'
 
 export interface UserTags {
   [tokenAddress: string]: string[]
+}
+
+export interface CategoryOverrides {
+  [tokenAddress: string]: string
 }
 
 export function getAllUserTags(): UserTags {
@@ -106,4 +111,56 @@ export const SUGGESTED_TAGS = [
   'Bought',
   'Sold'
 ]
+
+// Category Override Functions
+export function getAllCategoryOverrides(): CategoryOverrides {
+  if (typeof window === 'undefined') return {}
+  
+  try {
+    const stored = localStorage.getItem(CATEGORY_OVERRIDE_KEY)
+    if (!stored) return {}
+    return JSON.parse(stored)
+  } catch {
+    return {}
+  }
+}
+
+export function getCategoryOverride(tokenAddress: string): string | null {
+  const overrides = getAllCategoryOverrides()
+  return overrides[tokenAddress] || null
+}
+
+export function setCategoryOverride(tokenAddress: string, category: string | null) {
+  if (typeof window === 'undefined') return
+  
+  try {
+    const overrides = getAllCategoryOverrides()
+    
+    if (!category) {
+      delete overrides[tokenAddress]
+    } else {
+      overrides[tokenAddress] = category
+    }
+    
+    localStorage.setItem(CATEGORY_OVERRIDE_KEY, JSON.stringify(overrides))
+    
+    // Dispatch event for components to react
+    window.dispatchEvent(new CustomEvent('categoryOverrideChanged'))
+  } catch (error) {
+    console.error('Error saving category override:', error)
+  }
+}
+
+export function getTokensWithCategory(category: string): string[] {
+  const overrides = getAllCategoryOverrides()
+  const tokens: string[] = []
+  
+  for (const [address, cat] of Object.entries(overrides)) {
+    if (cat === category) {
+      tokens.push(address)
+    }
+  }
+  
+  return tokens
+}
 
