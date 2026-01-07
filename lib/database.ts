@@ -66,14 +66,19 @@ export async function batchUpsertTokens(tokens: Omit<TokenRow, 'created_at' | 'u
 export interface TokenFilters {
   dateFrom?: string;
   dateTo?: string;
+  minMarketCap?: number;
   maxMarketCap?: number;
+  category?: string;
+  sortBy?: string;
   hasTwitter?: boolean;
   hasWebsite?: boolean;
   hasTelegram?: boolean;
+  hasImage?: boolean;
+  hasDescription?: boolean;
 }
 
 /**
- * Fetches all tokens from the database, sorted by launch date (newest first)
+ * Fetches all tokens from the database with filters and sorting
  * @param limit - Maximum number of tokens to fetch
  * @param offset - Number of tokens to skip (for pagination)
  * @param filters - Optional filters to apply
@@ -91,9 +96,17 @@ export async function getAllTokens(limit: number = 1000, offset: number = 0, fil
     query = query.lte('launch_date', filters.dateTo);
   }
 
-  // Apply market cap filter
+  // Apply market cap range filter
+  if (filters?.minMarketCap) {
+    query = query.gte('ath', filters.minMarketCap);
+  }
   if (filters?.maxMarketCap) {
     query = query.lte('ath', filters.maxMarketCap);
+  }
+
+  // Apply category filter
+  if (filters?.category) {
+    query = query.eq('category', filters.category);
   }
 
   // Apply social link filters
@@ -107,10 +120,43 @@ export async function getAllTokens(limit: number = 1000, offset: number = 0, fil
     query = query.not('metadata_json->telegram', 'is', null);
   }
 
-  // Apply ordering and pagination
-  query = query
-    .order('launch_date', { ascending: false })
-    .range(offset, offset + limit - 1);
+  // Apply content filters
+  if (filters?.hasImage) {
+    query = query.not('image_uri', 'is', null).neq('image_uri', '');
+  }
+  if (filters?.hasDescription) {
+    query = query.not('description', 'is', null).neq('description', '');
+  }
+
+  // Apply sorting
+  const sortBy = filters?.sortBy || 'launch_date_desc';
+  switch (sortBy) {
+    case 'launch_date_asc':
+      query = query.order('launch_date', { ascending: true });
+      break;
+    case 'ath_desc':
+      query = query.order('ath', { ascending: false, nullsFirst: false });
+      break;
+    case 'ath_asc':
+      query = query.order('ath', { ascending: true, nullsFirst: false });
+      break;
+    case 'ath_24h_desc':
+      query = query.order('ath_last24hrs', { ascending: false, nullsFirst: false });
+      break;
+    case 'name_asc':
+      query = query.order('name', { ascending: true, nullsFirst: false });
+      break;
+    case 'name_desc':
+      query = query.order('name', { ascending: false, nullsFirst: false });
+      break;
+    case 'launch_date_desc':
+    default:
+      query = query.order('launch_date', { ascending: false });
+      break;
+  }
+
+  // Apply pagination
+  query = query.range(offset, offset + limit - 1);
 
   const { data, error } = await query;
 

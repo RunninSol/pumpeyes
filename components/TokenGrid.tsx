@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Token } from '@/types/token'
 import SearchBar from './SearchBar'
 import TokenCard from './TokenCard'
+import RecentlyViewedBar from './RecentlyViewedBar'
 import { FilterOptions } from './SearchSidebar'
 import { getFavorites } from '@/lib/favorites'
 
@@ -15,6 +16,7 @@ interface TokenGridProps {
 
 export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCountChange }: TokenGridProps) {
   const [favoritesVersion, setFavoritesVersion] = useState(0)
+  const [highlightedAddress, setHighlightedAddress] = useState<string | null>(null)
 
   // Update favorites count whenever favorites change
   useEffect(() => {
@@ -122,7 +124,7 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
       // Fetch favorites from database
       fetchFavorites()
     }
-  }, [showFavoritesOnly, filters.dateFrom, filters.dateTo, filters.maxMcap, filters.hasTwitter, filters.hasWebsite, filters.hasTelegram, favoritesVersion])
+  }, [showFavoritesOnly, filters.dateFrom, filters.dateTo, filters.minMcap, filters.maxMcap, filters.category, filters.sortBy, filters.hasTwitter, filters.hasWebsite, filters.hasTelegram, filters.hasImage, filters.hasDescription, favoritesVersion])
 
   async function fetchTokens(currentOffset: number, isInitial: boolean = false) {
     try {
@@ -141,10 +143,15 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
       
       if (filters.dateFrom) params.append('dateFrom', filters.dateFrom)
       if (filters.dateTo) params.append('dateTo', filters.dateTo)
+      if (filters.minMcap) params.append('minMarketCap', filters.minMcap)
       if (filters.maxMcap) params.append('maxMarketCap', filters.maxMcap)
+      if (filters.category) params.append('category', filters.category)
+      if (filters.sortBy) params.append('sortBy', filters.sortBy)
       if (filters.hasTwitter) params.append('hasTwitter', 'true')
       if (filters.hasWebsite) params.append('hasWebsite', 'true')
       if (filters.hasTelegram) params.append('hasTelegram', 'true')
+      if (filters.hasImage) params.append('hasImage', 'true')
+      if (filters.hasDescription) params.append('hasDescription', 'true')
       
       const response = await fetch(`/api/tokens?${params.toString()}`)
       
@@ -209,12 +216,54 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
     return searchQuery.trim().length >= 2 ? searchResults : tokens
   }, [tokens, searchResults, searchQuery])
 
+  // Handle clicking on a recently viewed token
+  const handleRecentTokenClick = async (address: string) => {
+    // Check if token is already in the current list
+    const existingToken = filteredTokens.find(t => t.address === address)
+    
+    if (existingToken) {
+      // Scroll to the token
+      const element = document.getElementById(`token-${address}`)
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        setHighlightedAddress(address)
+        // Remove highlight after 3 seconds
+        setTimeout(() => setHighlightedAddress(null), 3000)
+      }
+    } else {
+      // Token not in current view, fetch it and show at top
+      try {
+        const response = await fetch(`/api/tokens/${address}`)
+        const data = await response.json()
+        if (data.success && data.token) {
+          // Add to beginning of tokens list
+          setTokens(prev => [data.token, ...prev.filter(t => t.address !== address)])
+          setHighlightedAddress(address)
+          // Scroll to top
+          setTimeout(() => {
+            const element = document.getElementById(`token-${address}`)
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }
+            // Remove highlight after 3 seconds
+            setTimeout(() => setHighlightedAddress(null), 3000)
+          }, 100)
+        }
+      } catch (error) {
+        console.error('Error fetching token:', error)
+      }
+    }
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Search Bar - Sticky Top */}
       <div className="sticky top-0 z-10 bg-background border-b border-gray-800 p-4">
         <SearchBar value={searchQuery} onChange={setSearchQuery} />
       </div>
+
+      {/* Recently Viewed Bar */}
+      <RecentlyViewedBar onTokenClick={handleRecentTokenClick} />
 
       {/* Token Grid */}
       <div className="flex-1 p-6 overflow-y-auto">
@@ -275,11 +324,12 @@ export default function TokenGrid({ filters, showFavoritesOnly, onFavoritesCount
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredTokens.map((token, index) => {
+                const isHighlighted = highlightedAddress === token.address
                 // Attach ref to last token for infinite scroll (only on All Tokens tab)
                 if (index === filteredTokens.length - 1 && !searchQuery && !showFavoritesOnly) {
-                  return <div key={token.address} ref={lastTokenRef}><TokenCard token={token} onFavoriteChange={handleFavoriteChange} /></div>
+                  return <div key={token.address} ref={lastTokenRef}><TokenCard token={token} onFavoriteChange={handleFavoriteChange} isHighlighted={isHighlighted} /></div>
                 }
-                return <TokenCard key={token.address} token={token} onFavoriteChange={handleFavoriteChange} />
+                return <TokenCard key={token.address} token={token} onFavoriteChange={handleFavoriteChange} isHighlighted={isHighlighted} />
               })}
             </div>
             

@@ -11,10 +11,15 @@ export default function Home() {
   const [filters, setFilters] = useState({
     dateFrom: '',
     dateTo: '',
+    minMcap: '',
     maxMcap: '',
+    category: '',
+    sortBy: 'launch_date_desc',
     hasTwitter: false,
     hasWebsite: false,
     hasTelegram: false,
+    hasImage: false,
+    hasDescription: false,
   })
   const [favoritesCount, setFavoritesCount] = useState(0)
 

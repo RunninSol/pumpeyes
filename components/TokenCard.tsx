@@ -3,13 +3,15 @@
 import { Token } from '@/types/token'
 import { useState, useEffect } from 'react'
 import { isFavorite, toggleFavorite } from '@/lib/favorites'
+import { addRecentlyViewed } from '@/lib/recentlyViewed'
 
 interface TokenCardProps {
   token: Token
   onFavoriteChange?: () => void
+  isHighlighted?: boolean
 }
 
-export default function TokenCard({ token, onFavoriteChange }: TokenCardProps) {
+export default function TokenCard({ token, onFavoriteChange, isHighlighted }: TokenCardProps) {
   const [isFav, setIsFav] = useState(false)
   const [copied, setCopied] = useState(false)
   const [dexLoading, setDexLoading] = useState(false)
@@ -18,6 +20,16 @@ export default function TokenCard({ token, onFavoriteChange }: TokenCardProps) {
   useEffect(() => {
     setIsFav(isFavorite(token.address))
   }, [token.address])
+
+  // Add to recently viewed when interacting with the token
+  const trackView = () => {
+    addRecentlyViewed({
+      address: token.address,
+      name: token.name,
+      symbol: token.symbol,
+      image: token.image || undefined
+    })
+  }
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -68,6 +80,7 @@ export default function TokenCard({ token, onFavoriteChange }: TokenCardProps) {
   const handleDexClick = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    trackView() // Track this token as recently viewed
     
     const pair = await fetchPairAddress()
     if (pair) {
@@ -81,6 +94,7 @@ export default function TokenCard({ token, onFavoriteChange }: TokenCardProps) {
   const handleAxiomClick = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    trackView() // Track this token as recently viewed
     
     const pair = await fetchPairAddress()
     if (pair) {
@@ -116,7 +130,14 @@ export default function TokenCard({ token, onFavoriteChange }: TokenCardProps) {
   }
 
   return (
-    <div className="bg-card rounded-lg border border-gray-800/50 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-200 overflow-hidden relative aspect-square flex flex-col group">
+    <div 
+      id={`token-${token.address}`}
+      className={`bg-card rounded-lg border transition-all duration-200 overflow-hidden relative aspect-square flex flex-col group ${
+        isHighlighted 
+          ? 'border-primary shadow-lg shadow-primary/30 ring-2 ring-primary/50' 
+          : 'border-gray-800/50 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10'
+      }`}
+    >
       {/* Favorite Button */}
       <button
         onClick={handleFavoriteClick}
