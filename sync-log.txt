@@ -1,0 +1,87 @@
+[dotenv@17.2.3] injecting env (4) from .env.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+✅ Created new SQLite database at: C:\Users\Gabe\Desktop\EYES\data\tokens.db
+✅ SQLite database initialized
+========================================
+🚀 SYNCING DUNE → SQLITE
+========================================
+Query ID: 6404753
+Expected rows: ~14.3M
+Strategy: Single API call for all data
+========================================
+
+📥 Fetching 14.3M rows from Dune in optimized chunks (max 8GB per call)...
+
+📡 API Call #1 - Fetching from offset 0...
+   ✅ Received 32,000 rows (Total so far: 32,000/14,349,721)
+
+📡 API Call #2 - Fetching from offset 32,000...
+   ✅ Received 32,000 rows (Total so far: 64,000/14,349,721)
+
+📡 API Call #3 - Fetching from offset 64,000...
+   ✅ Received 32,000 rows (Total so far: 96,000/14,349,721)
+
+📡 API Call #4 - Fetching from offset 96,000...
+   ✅ Received 32,000 rows (Total so far: 128,000/14,349,721)
+
+📡 API Call #5 - Fetching from offset 128,000...
+   ✅ Received 32,000 rows (Total so far: 160,000/14,349,721)
+
+📡 API Call #6 - Fetching from offset 160,000...
+   ✅ Received 32,000 rows (Total so far: 192,000/14,349,721)
+
+📡 API Call #7 - Fetching from offset 192,000...
+   ✅ Received 32,000 rows (Total so far: 224,000/14,349,721)
+
+📡 API Call #8 - Fetching from offset 224,000...
+   ✅ Received 32,000 rows (Total so far: 256,000/14,349,721)
+
+📡 API Call #9 - Fetching from offset 256,000...
+   ✅ Received 32,000 rows (Total so far: 288,000/14,349,721)
+
+📡 API Call #10 - Fetching from offset 288,000...
+   ✅ Received 32,000 rows (Total so far: 320,000/14,349,721)
+
+📡 API Call #11 - Fetching from offset 320,000...
+   ✅ Received 32,000 rows (Total so far: 352,000/14,349,721)
+
+📡 API Call #12 - Fetching from offset 352,000...
+   ✅ Received 32,000 rows (Total so far: 384,000/14,349,721)
+
+📡 API Call #13 - Fetching from offset 384,000...
+   ✅ Received 32,000 rows (Total so far: 416,000/14,349,721)
+
+📡 API Call #14 - Fetching from offset 416,000...
+   ✅ Received 32,000 rows (Total so far: 448,000/14,349,721)
+
+📡 API Call #15 - Fetching from offset 448,000...
+   ✅ Received 32,000 rows (Total so far: 480,000/14,349,721)
+
+📡 API Call #16 - Fetching from offset 480,000...
+   ✅ Received 32,000 rows (Total so far: 512,000/14,349,721)
+
+📡 API Call #17 - Fetching from offset 512,000...
+   ✅ Received 32,000 rows (Total so far: 544,000/14,349,721)
+
+📡 API Call #18 - Fetching from offset 544,000...
+   ✅ Received 32,000 rows (Total so far: 576,000/14,349,721)
+
+📡 API Call #19 - Fetching from offset 576,000...
+   ✅ Received 32,000 rows (Total so far: 608,000/14,349,721)
+
+📡 API Call #20 - Fetching from offset 608,000...
+   ✅ Received 32,000 rows (Total so far: 640,000/14,349,721)
+
+📡 API Call #21 - Fetching from offset 640,000...
+❌ Error fetching from Dune: Error: Dune API error: This api request would exceed your configured datapoint limit per billing cycle. Please visit your subscription settings on dune.com and adjust your limits to perform this request.
+    at fetchDuneChunk (C:\Users\Gabe\Desktop\EYES\scripts\sync-dune-to-sqlite.ts:73:13)
+    at fetchAllDuneData (C:\Users\Gabe\Desktop\EYES\scripts\sync-dune-to-sqlite.ts:94:22)
+    at syncAllTokens (C:\Users\Gabe\Desktop\EYES\scripts\sync-dune-to-sqlite.ts:130:18)
+
+❌ Fatal error during sync: Error: Dune API error: This api request would exceed your configured datapoint limit per billing cycle. Please visit your subscription settings on dune.com and adjust your limits to perform this request.
+    at fetchDuneChunk (C:\Users\Gabe\Desktop\EYES\scripts\sync-dune-to-sqlite.ts:73:13)
+    at fetchAllDuneData (C:\Users\Gabe\Desktop\EYES\scripts\sync-dune-to-sqlite.ts:94:22)
+    at syncAllTokens (C:\Users\Gabe\Desktop\EYES\scripts\sync-dune-to-sqlite.ts:130:18)
+Fatal error: Error: Dune API error: This api request would exceed your configured datapoint limit per billing cycle. Please visit your subscription settings on dune.com and adjust your limits to perform this request.
+    at fetchDuneChunk (C:\Users\Gabe\Desktop\EYES\scripts\sync-dune-to-sqlite.ts:73:13)
+    at fetchAllDuneData (C:\Users\Gabe\Desktop\EYES\scripts\sync-dune-to-sqlite.ts:94:22)
+    at syncAllTokens (C:\Users\Gabe\Desktop\EYES\scripts\sync-dune-to-sqlite.ts:130:18)
